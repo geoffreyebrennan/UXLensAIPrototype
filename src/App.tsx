@@ -23,6 +23,15 @@ const issues = [
   { severity: 'Medium', title: 'Helper text is difficult to scan', desc: 'Supporting copy is too close to its field label and lacks a clear reading rhythm.', law: 'Gestalt proximity', confidence: '84%', color: 'bg-[#d5a757]' },
 ]
 
+type Finding = {
+  category: string
+  severity: 'Low' | 'Medium' | 'High' | 'Critical'
+  confidence: string
+  issue: string
+  recommendation: string
+  why: string
+}
+
 export default function App() {
   const [active, setActive] = useState('Overview')
   const [selected, setSelected] = useState('Checkout flow')
@@ -31,7 +40,92 @@ export default function App() {
   const [showAll, setShowAll] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const triggerUpload = () => fileRef.current?.click()
-  const onUpload = (event: ChangeEvent<HTMLInputElement>) => { if (event.target.files?.[0]) { setUploaded(true); setToast('Screenshot added to a new analysis'); setTimeout(() => setToast(''), 2600) } }
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [analysisResults, setAnalysisResults] = useState<Finding[] | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+
+  const onUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const f = event.target.files?.[0]
+    if (!f) return
+    if (!/image\/(png|jpeg|jpg)/.test(f.type)) { setToast('Only PNG/JPG images are supported'); setTimeout(() => setToast(''), 2600); return }
+    if (f.size > 20 * 1024 * 1024) { setToast('Image must be under 20 MB'); setTimeout(() => setToast(''), 2600); return }
+    setUploaded(true)
+    setUploadedFile(f)
+    const url = URL.createObjectURL(f)
+    setPreviewUrl(url)
+    setToast('Screenshot added to a new analysis')
+    setTimeout(() => setToast(''), 2600)
+    setAnalysisResults(null)
+    // automatically run a quick analysis after upload
+    setTimeout(() => { try { void analyze() } catch (e) { /* ignore */ } }, 600)
+  }
+
+  function generateFindings(width:number,height:number,size:number,name:string): Finding[] {
+    const findings: Finding[] = []
+    // Basic heuristics based on dimensions and size
+    const isMobile = Math.min(width, height) <= 420 || width <= 420
+    if (size < 15000) {
+      findings.push({ category: 'Image quality', severity: 'Low', confidence: '72%', issue: 'Low-resolution screenshot', recommendation: 'Capture a higher-resolution screenshot for more accurate analysis.', why: 'Small images can hide text and element relationships.' })
+    }
+    if (isMobile) {
+      findings.push({ category: 'Touch targets', severity: 'Medium', confidence: '86%', issue: 'Potentially small touch targets', recommendation: 'Ensure tap targets are at least 44x44 px and spaced apart.', why: 'Smaller touch targets reduce tappability on mobile.' })
+      findings.push({ category: 'Layout', severity: 'Medium', confidence: '80%', issue: 'Content may be cramped vertically', recommendation: 'Increase vertical rhythm and spacing between blocks.', why: 'Improves scanability on small screens.' })
+    } else {
+      findings.push({ category: 'Navigation', severity: 'Medium', confidence: '82%', issue: 'Navigation may have too many primary items', recommendation: 'Group related items or use a secondary menu to reduce cognitive load.', why: "Hick's law: more choices increase decision time." })
+      findings.push({ category: 'CTA prominence', severity: 'High', confidence: '88%', issue: 'Primary CTA lacks strong contrast', recommendation: 'Use a distinct color and size for the primary CTA to improve prominence.', why: 'Improves conversion and discoverability.' })
+    }
+    // Add a positive signal
+    findings.push({ category: 'Positive', severity: 'Low', confidence: '90%', issue: 'Strong whitespace and visual grouping', recommendation: 'Keep whitespace patterns consistent across pages.', why: 'Gestalt principles support clear grouping.' })
+    return findings
+  }
+
+  const analyze = async () => {
+    if (!uploadedFile || !previewUrl) { setToast('Upload an image first'); setTimeout(() => setToast(''),2600); return }
+    setAnalyzing(true)
+    // load image to read dimensions
+    const img = new Image()
+    img.src = previewUrl
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej() })
+    const width = img.naturalWidth || 0
+    const height = img.naturalHeight || 0
+    const findings = generateFindings(width, height, uploadedFile.size, uploadedFile.name)
+    // simulate short analysis time
+    await new Promise(r => setTimeout(r, 600))
+    setAnalysisResults(findings)
+    setAnalyzing(false)
+    setToast('Analysis complete')
+    setTimeout(() => setToast(''),2600)
+  }
+
+  const exportMarkdown = () => {
+    const findings = analysisResults ?? []
+    const mdLines = [
+      `# UXLens AI — Analysis Report`,
+      ``,
+      `**File:** ${uploadedFile?.name ?? 'N/A'}`,
+      `**Dimensions:** ${findings.length ? '' : 'N/A'}`,
+      ``,
+      `## Findings`,
+      ``,
+    ]
+    findings.forEach((f,i) => {
+      mdLines.push(`### ${i+1}. ${f.issue}`)
+      mdLines.push(`- **Category:** ${f.category}`)
+      mdLines.push(`- **Severity:** ${f.severity}`)
+      mdLines.push(`- **Confidence:** ${f.confidence}`)
+      mdLines.push(`- **Recommendation:** ${f.recommendation}`)
+      mdLines.push(`- **Why:** ${f.why}`)
+      mdLines.push(``)
+    })
+    const blob = new Blob([mdLines.join('\n')], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${uploadedFile?.name ?? 'ux-analysis'}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
   const nav = ['Overview', 'Analyses', 'Insights', 'Library']
   return <main className="min-h-screen bg-[#e7ecef] font-sans text-[#18314f]">
     <input ref={fileRef} onChange={onUpload} type="file" accept="image/png,image/jpeg" className="hidden" />
