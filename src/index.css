@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('https://static.figma.com/font/OpenSans_wdth_wght__2') format('woff2');
+}
+
+@theme {
+  --font-sans: 'Open Sans', sans-serif;
+}
+
+:root {
+  --canvas: #e7ecef;
+  --navy: #274c77;
+  --slate: #6096ba;
+  --powder: #a3cef1;
+  --stone: #8b8c89;
+  --ink: #18314f;
+}
+
+body { background: var(--canvas); color: var(--ink); }
+button, input { font: inherit; }
