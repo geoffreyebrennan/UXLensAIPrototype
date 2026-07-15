@@ -149,6 +149,10 @@ export default function App() {
         </div>
       </section>
     </div>
+    {analysisResults && <div className="fixed right-5 top-20 z-50 w-[360px] rounded-xl border border-[#274c77]/10 bg-white p-4 shadow-xl">
+      <div className="mb-2 flex items-center justify-between"><strong className="text-sm">Analysis results</strong><button onClick={() => setAnalysisResults(null)} className="text-xs text-[#8b8c89]">Close</button></div>
+      <div className="space-y-2 text-sm max-h-72 overflow-auto">{analysisResults.map((f,i) => <div key={i} className="rounded-md border border-[#e7ecef] p-2"><div className="flex justify-between"><span className="font-semibold">{f.issue}</span><span className="text-xs text-[#52718c]">{f.severity} · {f.confidence}</span></div><div className="mt-1 text-xs text-[#52718c]">{f.recommendation}</div></div>)}</div>
+    </div>}
     {uploaded && <div className="fixed bottom-5 right-5 flex items-center gap-3 rounded-xl bg-[#274c77] px-4 py-3 text-sm text-white shadow-xl"><Icon name="check" size={17}/>Screenshot queued for analysis<button onClick={() => setUploaded(false)}><Icon name="close" size={16}/></button></div>}
     {toast && <div className="fixed bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-[#18314f] px-4 py-2 text-sm text-white shadow-lg">{toast}</div>}
   </main>
