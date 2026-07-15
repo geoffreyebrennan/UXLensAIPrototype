@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -e
 
-pnpm install --prefer-offline --no-frozen-lockfile
+echo "Running npm install"
+npm install
+echo "Dependencies installed"
