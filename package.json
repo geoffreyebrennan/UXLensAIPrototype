@@ -1,6 +1,5 @@
 {
   "name": "figma-make-app",
-  "homepage": "https://geoffreyebrennan.github.io/UXLensAIPrototype/",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -8,9 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
-      "format": "oxfmt",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "format": "oxfmt"
   },
   "dependencies": {
     "react": "^19.0.0",
