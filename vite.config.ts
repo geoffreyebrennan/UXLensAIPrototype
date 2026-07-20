@@ -132,7 +132,7 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
           tags.push({ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' }, injectTo: 'head' })
         }
         if (favicon) {
-          tags.push({ tag: 'link', attrs: { rel: 'icon', href: "images/UXLens-icon.ico" }, injectTo: 'head' })
+          tags.push({ tag: 'link', attrs: { rel: 'icon', href: 'images/UXLens-icon.ico' }, injectTo: 'head' })
         }
         if (title) {
           tags.push({ tag: 'meta', attrs: { property: 'og:title', favicon:'images/UXLens-icon.ico',content: title }, injectTo: 'head' })
