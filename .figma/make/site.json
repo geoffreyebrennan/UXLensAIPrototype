@@ -1,7 +1,8 @@
 {
   "description": "UXLens AI enhances user experience design by providing intuitive tools for prototyping and testing, tailored for designers and teams seeking efficiency.",
   "robots": {
-    "index": false
+    "index": false,
+    "favicon": "images/UXLens-icon.ico"
   },
   "accessibility": {
     "addBypassLinks": false,

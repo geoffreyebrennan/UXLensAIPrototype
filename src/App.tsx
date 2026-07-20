@@ -33,7 +33,7 @@ type Finding = {
 }
 
 export default function App() {
-  const [active, setActive] = useState('Welcome')
+  const [active, setActive] = useState('Overview')
   const [selected, setSelected] = useState('Checkout flow')
   const [uploaded, setUploaded] = useState(false)
   const [toast, setToast] = useState('')
@@ -42,7 +42,6 @@ export default function App() {
   const triggerUpload = () => fileRef.current?.click()
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [imageDimensions, setImageDimensions] = useState<string | null>(null)
   const [analysisResults, setAnalysisResults] = useState<Finding[] | null>(null)
   const [chatMessages, setChatMessages] = useState<Array<{role:'user'|'agent'; text:string}>>([])
   const [chatInput, setChatInput] = useState('')
@@ -54,7 +53,7 @@ export default function App() {
   const onUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const f = event.target.files?.[0]
     if (!f) return
-    if (!['image/png', 'image/jpeg'].includes(f.type)) { setToast('Only PNG/JPG images are supported'); setTimeout(() => setToast(''), 2600); return }
+    if (!/image\/(png|jpeg|jpg)/.test(f.type)) { setToast('Only PNG/JPG images are supported'); setTimeout(() => setToast(''), 2600); return }
     if (f.size > 20 * 1024 * 1024) { setToast('Image must be under 20 MB'); setTimeout(() => setToast(''), 2600); return }
     setUploaded(true)
     setUploadedFile(f)
@@ -63,15 +62,13 @@ export default function App() {
     setToast('Screenshot added to a new analysis')
     setTimeout(() => setToast(''), 2600)
     setAnalysisResults(null)
-    setImageDimensions(null)
     setChatMessages([])
     setChatInput('')
-    setActive('Analysis')
-    void analyze(f, url)
-    event.target.value = ''
+    // automatically run a quick analysis after upload
+    setTimeout(() => { try { void analyze() } catch (e) { /* ignore */ } }, 600)
   }
 
-  function generateFindings(width:number,height:number,size:number): Finding[] {
+  function generateFindings(width:number,height:number,size:number,name:string): Finding[] {
     const findings: Finding[] = []
     // Basic heuristics based on dimensions and size
     const isMobile = Math.min(width, height) <= 420 || width <= 420
@@ -90,28 +87,20 @@ export default function App() {
     return findings
   }
 
-  const analyze = async (file = uploadedFile, sourceUrl = previewUrl) => {
-    if (!file || !sourceUrl) { setToast('Upload an image first'); setTimeout(() => setToast(''),2600); return }
+  const analyze = async () => {
+    if (!uploadedFile || !previewUrl) { setToast('Upload an image first'); setTimeout(() => setToast(''),2600); return }
     setAnalyzing(true)
-    try {
-      const img = new Image()
-      img.src = sourceUrl
-      await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(new Error('Unable to load image')) })
-      const width = img.naturalWidth || 0
-      const height = img.naturalHeight || 0
-      const findings = generateFindings(width, height, file.size)
-      await new Promise(resolve => setTimeout(resolve, 600))
-      setImageDimensions(`${width} × ${height} px`)
-      setAnalysisResults(findings)
-      setToast('Analysis complete')
-      setTimeout(() => setToast(''),2600)
-    } catch (error) {
-      console.error(error)
-      setToast('Unable to analyze this image')
-      setTimeout(() => setToast(''), 2600)
-    } finally {
-      setAnalyzing(false)
-    }
+    const img = new Image()
+    img.src = previewUrl
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej() })
+    const width = img.naturalWidth || 0
+    const height = img.naturalHeight || 0
+    const findings = generateFindings(width, height, uploadedFile.size, uploadedFile.name)
+    await new Promise(r => setTimeout(r, 600))
+    setAnalysisResults(findings)
+    setAnalyzing(false)
+    setToast('Analysis complete')
+    setTimeout(() => setToast(''),2600)
   }
 
   const generateChatResponse = (message: string) => {
@@ -135,7 +124,7 @@ export default function App() {
 
     if (!openAiKey) {
       const response = generateChatResponse(text)
-      setChatMessages(prev => [...prev, { role: 'agent', text: response }])
+      setChatMessages(prev => [...prev, { role: 'user', text }, { role: 'agent', text: response }])
       setChatLoading(false)
       return
     }
@@ -177,7 +166,7 @@ export default function App() {
       `# UXLens AI — Analysis Report`,
       ``,
       `**File:** ${uploadedFile?.name ?? 'N/A'}`,
-      `**Dimensions:** ${imageDimensions ?? 'N/A'}`,
+      `**Dimensions:** ${findings.length ? '' : 'N/A'}`,
       ``,
       `## Findings`,
       ``,
@@ -204,31 +193,11 @@ export default function App() {
   const summaryCount = analysisResults?.length ?? 0
   const overviewHighlights = analysisResults ? analysisResults.slice(0, 2) : []
 
-  const renderWelcome = () => (
-    <div className="space-y-8" style={{ padding: '0 24px' }}>
-      <div className="grid min-h-[calc(100vh-140px)] place-items-center py-8">
-        <div className="w-full max-w-3xl text-center">
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#274c77] text-[#a3cef1] shadow-[0_12px_28px_rgba(39,76,119,.2)]"><Icon name="spark" size={27}/></div>
-          <p className="mt-7 text-sm font-semibold text-[#6096ba]">Welcome to UXLens AI</p>
-          <h2 className="mt-3 text-4xl font-bold tracking-[-.055em] text-[#18314f] sm:text-5xl">Find UX friction before it reaches your users.</h2>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#52718c]">Upload a product screenshot and get a focused review with practical recommendations based on established UX principles.</p>
-          <div className="mx-auto mt-10 max-w-xl rounded-3xl border border-dashed border-[#6096ba]/60 bg-[#f7f9fa] p-8 shadow-[0_14px_32px_rgba(39,76,119,.08)] sm:p-10">
-            <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#a3cef1]/50 text-[#274c77]"><Icon name="upload" size={23}/></div>
-            <h3 className="mt-5 text-xl font-bold tracking-[-.03em]">Start a new analysis</h3>
-            <p className="mt-2 text-sm leading-6 text-[#52718c]">Choose a PNG or JPG screenshot to receive your UX review.</p>
-            <button type="button" onClick={triggerUpload} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#274c77] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(39,76,119,.18)] transition hover:-translate-y-0.5 hover:bg-[#1f4169]"><Icon name="upload" size={17}/>Upload screenshot</button>
-            <p className="mt-4 text-xs text-[#8b8c89]">PNG or JPG · Maximum file size 20 MB</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-
   const renderOverview = () => (
-    <div className="space-y-8" style={{ padding: '0 24px' }}>
+    <div className="space-y-8">
       <div className="mb-8 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div>
-          <p className="mt-2 mb-2 text-sm font-semibold text-[#6096ba]">Overview</p>
+          <p className="mb-2 text-sm font-semibold text-[#6096ba]">Overview</p>
           <h2 className="max-w-xl text-3xl font-bold tracking-[-.055em] sm:text-[38px]">High-level UX feedback at a glance.</h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#52718c]">Get the top recommendations and a direct path into the detailed review.</p>
         </div>
@@ -276,24 +245,21 @@ export default function App() {
   )
 
   const renderAnalysis = () => (
-    <div className="space-y-8" style={{ padding: '0 24px' }}>
+    <div className="space-y-8">
       <div className="mb-8 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div>
-          <p className="mt-2 mb-2 text-sm font-semibold text-[#6096ba]">Analysis</p>
+          <p className="mb-2 text-sm font-semibold text-[#6096ba]">Analysis</p>
           <h2 className="max-w-xl text-3xl font-bold tracking-[-.055em] sm:text-[38px]">Detailed review with findings and recommendations.</h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#52718c]">{analyzing ? 'Analyzing the screenshot now. Results will appear shortly.' : 'Drill into each issue, see severity, and ask the AI reviewer for next-step guidance.'}</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button onClick={exportMarkdown} disabled={!analysisResults} className="rounded-xl border border-[#274c77]/20 bg-white px-5 py-3 text-sm font-semibold text-[#274c77] transition hover:bg-[#f7f9fa] disabled:cursor-not-allowed disabled:opacity-50">Export report</button>
-          <button onClick={triggerUpload} className="flex items-center justify-center gap-2 rounded-xl bg-[#274c77] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(39,76,119,.18)] transition hover:-translate-y-0.5">Upload another screenshot</button>
-        </div>
+        <button onClick={() => previewUrl ? triggerUpload() : triggerUpload()} className="flex items-center justify-center gap-2 rounded-xl bg-[#274c77] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(39,76,119,.18)] transition hover:-translate-y-0.5">Upload another screenshot</button>
       </div>
       <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
         <div className="rounded-2xl border border-[#274c77]/10 bg-[#f7f9fa] p-5 shadow-[0_12px_30px_rgba(39,76,119,.06)] sm:p-6">
           <div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-semibold text-[#8b8c89]">Detailed review</p><h3 className="mt-1 text-xl font-bold tracking-[-.03em]">Current analysis</h3></div></div>
           <div className="grid gap-5 sm:grid-cols-[.88fr_1.12fr]">
             <div className="relative min-h-[235px] overflow-hidden rounded-xl bg-[#a3cef1]/75 p-4">
-              {previewUrl ? <img src={previewUrl} alt="preview" className="h-[320px] w-full object-contain rounded-md bg-white/80" /> : <div className="flex h-full items-center justify-center text-[#52718c]"><button type="button" onClick={triggerUpload} className="font-semibold text-[#274c77] underline decoration-[#6096ba] underline-offset-2 transition hover:text-[#6096ba]">Upload a screenshot</button><span>&nbsp;to start detailed analysis.</span></div>}
+              {previewUrl ? <img src={previewUrl} alt="preview" className="h-[320px] w-full object-contain rounded-md bg-white/80" /> : <div className="flex h-full items-center justify-center text-[#52718c]">Upload a screenshot to start detailed analysis.</div>}
             </div>
             <div className="flex flex-col">
               <div className="grid grid-cols-2 gap-2"><Metric value={analysisResults ? '74' : '--'} label="UX score" suffix="/100"/><Metric value={analysisResults ? analysisResults.length.toString() : '--'} label="Findings" suffix=""/></div>
@@ -302,14 +268,14 @@ export default function App() {
             </div>
           </div>
         </div>
-        <div className="ml-6 rounded-2xl bg-[#274c77] p-6 text-white shadow-[0_12px_30px_rgba(39,76,119,.18)]">
+        <div className="rounded-2xl bg-[#274c77] p-6 text-white shadow-[0_12px_30px_rgba(39,76,119,.18)]">
           <div className="flex items-start justify-between"><div><p className="text-sm font-semibold text-[#a3cef1]">UX review agent</p><h3 className="mt-1 text-xl font-bold tracking-[-.03em]">Chat with the assistant</h3></div><div className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-[#a3cef1]"><Icon name="spark" size={20}/></div></div>
           {analysisResults ? (
             <>
               <div className="mt-7 max-h-[280px] overflow-y-auto space-y-3">
                 {chatMessages.length ? chatMessages.map((msg, idx) => <div key={idx} className={`rounded-xl p-3 ${msg.role === 'user' ? 'bg-white text-[#18314f]' : 'bg-[#1f4169] text-white'}`}><div className="text-[11px] uppercase tracking-[.16em] text-[#8b98b1]">{msg.role === 'user' ? 'You' : 'Agent'}</div><p className="mt-1 text-sm leading-6">{msg.text}</p></div>) : <div className="rounded-xl bg-white/10 p-4 text-sm text-[#dbe5f1]">Ask the assistant to explain a finding or suggest next steps.</div>}
               </div>
-              <div className="relative mt-5 space-y-3"><div className="flex gap-2"><input value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={!analysisResults || chatLoading} className="min-w-0 flex-1 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-white/40 focus:outline-none" placeholder="Ask anything..."/><button onClick={submitChat} disabled={!analysisResults || !chatInput.trim() || chatLoading} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#274c77] transition hover:bg-[#f7f9fa] disabled:cursor-not-allowed disabled:opacity-60">{chatLoading ? 'Thinking…' : 'Send'}</button></div><div aria-hidden="true" className="absolute -left-11 top-1 grid h-10 w-10 place-items-center rounded-full bg-[#6096ba] text-white shadow-lg animate-pulse"><Icon name="arrow" size={21}/></div>{chatError ? <p className="text-sm text-[#ffdad6]">{chatError}</p> : null}</div>
+              <div className="mt-5 space-y-3"><div className="flex gap-2"><input value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={!analysisResults || chatLoading} className="min-w-0 flex-1 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-white/40 focus:outline-none" placeholder="Ask a question..."/><button onClick={submitChat} disabled={!analysisResults || !chatInput.trim() || chatLoading} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#274c77] transition hover:bg-[#f7f9fa] disabled:cursor-not-allowed disabled:opacity-60">{chatLoading ? 'Thinking…' : 'Send'}</button></div>{chatError ? <p className="text-sm text-[#ffdad6]">{chatError}</p> : null}</div>
             </>
           ) : (
             <div className="mt-7 rounded-xl border border-white/15 bg-white/10 p-5 text-sm leading-6 text-[#dbe5f1]">Upload an image to start a conversation with the AI reviewer.</div>
@@ -359,10 +325,10 @@ export default function App() {
   )
 
   const renderInsights = () => (
-    <div className="space-y-8" style={{ padding: '0 24px' }}>
+    <div className="space-y-8">
       <div className="mb-8 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div>
-          <p className="mt-2 mb-2 text-sm font-semibold text-[#6096ba]">Insights</p>
+          <p className="mb-2 text-sm font-semibold text-[#6096ba]">Insights</p>
           <h2 className="max-w-xl text-3xl font-bold tracking-[-.055em] sm:text-[38px]">Understand what your reviews are teaching you.</h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#52718c]">Track patterns across analyses and see which UX issues appear most often.</p>
         </div>
@@ -380,10 +346,10 @@ export default function App() {
   )
 
   const renderLibrary = () => (
-    <div className="space-y-8" style={{ padding: '0 24px' }}>
+    <div className="space-y-8">
       <div className="mb-8 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div>
-          <p className="mt-2 mb-2 text-sm font-semibold text-[#6096ba]">Library</p>
+          <p className="mb-2 text-sm font-semibold text-[#6096ba]">Library</p>
           <h2 className="max-w-xl text-3xl font-bold tracking-[-.055em] sm:text-[38px]">UX guidelines and patterns you can rely on.</h2>
           <p className="mt-3 max-w-xl text-sm leading-6 text-[#52718c]">A growing collection of advice, organized by UX category and confidence.</p>
         </div>
@@ -403,7 +369,6 @@ export default function App() {
   )
 
   const renderActiveView = () => {
-    if (active === 'Welcome') return renderWelcome()
     if (active === 'Analysis') return renderAnalysis()
     if (active === 'Insights') return renderInsights()
     if (active === 'Library') return renderLibrary()
@@ -413,13 +378,10 @@ export default function App() {
   return <main className="min-h-screen bg-[#e7ecef] font-sans text-[#18314f]">
     <input ref={fileRef} onChange={onUpload} type="file" accept="image/png,image/jpeg" className="hidden" />
     <div className="flex min-h-screen">
-         <aside className="hidden w-[248px] shrink-0 flex-col border-r border-[#274c77]/10 bg-[#f7f9fa] p-5 lg:flex lg:max-h-screen">
-        <button type="button" onClick={() => setActive('Welcome')} className="mb-12 flex items-center gap-3 rounded-xl px-2 text-left transition hover:opacity-80" aria-label="Go to welcome page"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#274c77] text-white shadow-sm"><Icon name="spark" size={18}/></span><span className="text-lg font-bold tracking-[-.04em]">UXLens <span className="font-normal text-[#6096ba]">AI</span></span></button>
+      <aside className="hidden w-[248px] shrink-0 flex-col border-r border-[#274c77]/10 bg-[#f7f9fa] p-5 lg:flex">
+        <div className="mb-12 flex items-center gap-3 px-2"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#274c77] text-white shadow-sm"><Icon name="spark" size={18}/></div><span className="text-lg font-bold tracking-[-.04em]">UXLens <span className="font-normal text-[#6096ba]">AI</span></span></div>
         <button onClick={triggerUpload} className="mb-8 flex w-full items-center justify-center gap-2 rounded-xl bg-[#274c77] px-4 py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(39,76,119,.18)] transition hover:bg-[#1f4169]"><Icon name="plus" size={17}/>New analysis</button>
-         <nav className="space-y-1">{nav.map((item, i) => {
-          const isDisabled = !uploadedFile && ['Overview', 'Analysis', 'Insights'].includes(item)
-          return <button key={item} type="button" disabled={isDisabled} onClick={() => setActive(item)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${isDisabled ? 'cursor-not-allowed text-[#8b8c89]/60 opacity-60' : active === item ? 'bg-[#a3cef1]/45 font-semibold text-[#274c77]' : 'text-[#52718c] hover:bg-[#e7ecef]'}`}><Icon name={['grid','file','chart','book'][i] as IconName} size={18}/>{item}</button>
-        })}</nav>
+        <nav className="space-y-1">{nav.map((item, i) => <button key={item} onClick={() => setActive(item)} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${active === item ? 'bg-[#a3cef1]/45 font-semibold text-[#274c77]' : 'text-[#52718c] hover:bg-[#e7ecef]'}`}><Icon name={['grid','file','chart','book'][i] as IconName} size={18}/>{item}</button>)}</nav>
         <div className="mt-9"><p className="px-3 pb-2 text-xs font-semibold text-[#8b8c89]">Recent analyses</p><div className="space-y-1">{analyses.map(a => <button key={a.title} onClick={() => setSelected(a.title)} className={`w-full rounded-lg px-3 py-2 text-left transition ${selected === a.title ? 'bg-white shadow-sm' : 'hover:bg-white/60'}`}><span className="flex items-center gap-2 text-sm font-semibold"><i className={`h-2 w-2 rounded-full ${a.color}`}/>{a.title}</span><span className="ml-4 text-xs text-[#8b8c89]">{a.meta}</span></button>)}</div></div>
         <div className="mt-auto space-y-1 border-t border-[#274c77]/10 pt-4"><button className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-[#52718c] hover:bg-[#e7ecef]"><Icon name="settings" size={18}/>Settings</button><div className="flex items-center gap-3 px-3 py-3"><div className="grid h-8 w-8 place-items-center rounded-full bg-[#6096ba] text-xs font-bold text-white">JS</div><div><p className="text-sm font-semibold">Jordan Smith</p><p className="text-xs text-[#8b8c89]">Free plan</p></div></div></div>
       </aside>
@@ -450,7 +412,7 @@ export default function App() {
                   <div className="mt-7 max-h-[280px] overflow-y-auto space-y-3">
                     {chatMessages.length ? chatMessages.map((msg, idx) => <div key={idx} className={`rounded-xl p-3 ${msg.role === 'user' ? 'bg-white text-[#18314f]' : 'bg-[#1f4169] text-white'}`}><div className="text-[11px] uppercase tracking-[.16em] text-[#8b98b1]">{msg.role === 'user' ? 'You' : 'Agent'}</div><p className="mt-1 text-sm leading-6">{msg.text}</p></div>) : <div className="rounded-xl bg-white/10 p-4 text-sm text-[#dbe5f1]">Ask the assistant about the analysis, contrast, navigation, or CTA effectiveness.</div>}
                   </div>
-                  <div className="mt-5 space-y-3"><div className="flex gap-2"><input value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={!analysisResults || chatLoading} className="min-w-0 flex-1 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-white/40 focus:outline-none" placeholder="Ask anything..."/><button onClick={submitChat} disabled={!analysisResults || !chatInput.trim() || chatLoading} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#274c77] transition hover:bg-[#f7f9fa] disabled:cursor-not-allowed disabled:opacity-60">{chatLoading ? 'Thinking…' : 'Send'}</button></div>{chatError ? <p className="text-sm text-[#ffdad6]">{chatError}</p> : null}</div>
+                  <div className="mt-5 space-y-3"><div className="flex gap-2"><input value={chatInput} onChange={e => setChatInput(e.target.value)} disabled={!analysisResults || chatLoading} className="min-w-0 flex-1 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/60 focus:border-white/40 focus:outline-none" placeholder="Ask a question..."/><button onClick={submitChat} disabled={!analysisResults || !chatInput.trim() || chatLoading} className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#274c77] transition hover:bg-[#f7f9fa] disabled:cursor-not-allowed disabled:opacity-60">{chatLoading ? 'Thinking…' : 'Send'}</button></div>{chatError ? <p className="text-sm text-[#ffdad6]">{chatError}</p> : null}</div>
                 </>
               ) : (
                 <div className="mt-7 rounded-xl border border-white/15 bg-white/10 p-5 text-sm leading-6 text-[#dbe5f1]">Upload an image to start a conversation with the AI reviewer. After analysis, ask questions about the findings and recommendations.</div>
