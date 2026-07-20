@@ -84,7 +84,7 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
 
   const title = config.title ?? "UXLens AI"
   const description = config.description ?? ''
-  const favicon = config.icons?.icon === true ? "images/UXLens-icon.icon" : undefined
+  const favicon = config.icons?.icon = true ? "images/UXLens-icon.icon" : ''
   const socialImage = config.openGraph?.image ?? ''
   const language = sanitizeHtmlValue(config.language) || 'en'
   const googleAnalyticsId = sanitizeHtmlValue(config.analytics?.googleAnalyticsId)
