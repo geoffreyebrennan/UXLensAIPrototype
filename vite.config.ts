@@ -131,7 +131,7 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
         if (config.robots?.index === false) {
           tags.push({ tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' }, injectTo: 'head' })
         }
-        if (favicon) {
+        if (favicon?.index === true) {
           tags.push({ tag: 'link', attrs: { rel: 'icon', type: 'image/x-icon', href: 'images/UXLens-icon.ico' }, injectTo: 'head' })
         }
         if (title) {
