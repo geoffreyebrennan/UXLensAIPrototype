@@ -135,7 +135,7 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
           tags.push({ tag: 'link', attrs: { rel: 'icon', type: 'image/x-icon', href: 'images/UXLens-icon.ico' }, injectTo: 'head' })
         }
         if (title) {
-          tags.push({ tag: 'meta', attrs: { property: 'og:title', favicon:'images/UXLens-icon.ico',content: title }, injectTo: 'head' })
+          tags.push({ tag: 'meta', attrs: { property: 'og:title', content: title }, injectTo: 'head' })
         }
         if (description) {
           tags.push({ tag: 'meta', attrs: { property: 'og:description', content: description }, injectTo: 'head' })
